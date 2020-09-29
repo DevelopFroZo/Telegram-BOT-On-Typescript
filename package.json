@@ -1,0 +1,27 @@
+{
+  "name": "telegram-bot-on-typescript",
+  "version": "0.0.1",
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "npx tsc -w",
+    "build": "npx tsc",
+    "clear": "rm -r ./build",
+    "start": "node build"
+  },
+  "keywords": [
+    "Telegram",
+    "Bot",
+    "Typescript"
+  ],
+  "author": "FroZo",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node-fetch": "^2.5.7",
+    "typescript": "^4.0.3"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.1",
+    "transliteration": "^2.1.11"
+  }
+}
