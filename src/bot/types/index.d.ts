@@ -1,10 +1,21 @@
 module Bot {
-  namespace FetchFactory {
-    interface IOptions {
-      timeout?: number,
-      allowed_updates?: ALLOWED_UPDATES[]
-    }
+  interface InitOptions {
+    timeout?: number,
+    allowed_updates?: ALLOWED_UPDATES[]
   }
 
-  type onCallback<T = any> = ( update: T ) => void | Promise<void>;
+  interface PreprocessContext<T = any> {
+    target: T,
+    [key: string]: any
+  }
+
+  type callback<T = any, R = {}> = ( ctx: PreprocessContext<T> & R ) => any | Promise<any>;
+  type preprocessor<T = any, R = {}> = ( ctx: PreprocessContext<T> & R ) => any | Promise<any>;
+
+  interface Handlers {
+    [key: string]: {
+      callback: Function,
+      preprocessors: Function[]
+    }[]
+  }
 }

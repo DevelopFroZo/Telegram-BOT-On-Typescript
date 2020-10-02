@@ -1,14 +1,14 @@
-import fetchFactory from "./fetchFactory";
+import fetchFactory from "./utils/fetchFactory";
+import preprocess from "./utils/preprocess";
+import replace from "./preprocessors/replace";
 
 class Bot{
   private fetch;
   private timeout: number;
   private allowed_updates?: Bot.API.ALLOWED_UPDATES[];
-  private lastUpdateId: number = -1;
-  private handlers: { [key: string]: Bot.onCallback } = {};
+  private handlers: Bot.Handlers = {};
 
-  // #fix Function type
-  constructor( token: string, fetch: Function, options?: Bot.FetchFactory.IOptions ){
+  constructor( token: string, fetch: Function, options?: Bot.InitOptions ){
     let timeout: number | undefined = 10;
     let allowed_updates: Bot.API.ALLOWED_UPDATES[] | undefined;
 
@@ -25,29 +25,31 @@ class Bot{
     this.allowed_updates = allowed_updates;
   }
 
-  getMe(){
-    return this.fetch<Bot.API.Response.User>( "getMe" );
-  }
-
-  getUpdates( offset?: number ){
-    return this.fetch<Bot.API.Response.Update[]>( "getUpdates", {
+  private getUpdates( offset?: number ){
+    return this.fetch<Bot.API.Update[]>( "getUpdates", {
       offset,
       timeout: this.timeout,
       allowed_updates: this.allowed_updates
     } );
   }
 
-  async handle( updates: Bot.API.Response.Update[] ){
+  private async handle( updates: object[] ){
     for( const update of updates ){
-      const [ name, update_ ]: [ string, any ] = Object.entries( update )[1];
+      const name = Object.keys( update )[1];
 
       if( name in this.handlers ){
-        await this.handlers[ name ]( update_ );
+        for( const { callback, preprocessors } of this.handlers[ name ] ){
+          const ctx = { target: update };
+
+          if( await preprocess( ctx, preprocessors ) ){
+            await callback( ctx );
+          }
+        }
       }
     }
   }
 
-  async process( offset?: number ){
+  private async process( offset?: number ){
     const updates = await this.getUpdates( offset );
     const lastUpdateId = updates.length > 0 ? updates[ updates.length - 1 ].update_id + 1 : offset;
 
@@ -61,17 +63,29 @@ class Bot{
     this.process( offset );
   }
 
-  on<T>( event: string, callback: Bot.onCallback<T> ){
-    this.handlers[ event ] = callback;
-  }
-
-  onMessage( callback: Bot.onCallback<Bot.API.Response.Message> ){
-    this.on( "message", callback );
+  getMe(){
+    return this.fetch<Bot.API.User>( "getMe" );
   }
 
   // #fix support options (disable_web_page_preview, disable_notification, reply_to_message_id, reply_markup)
-  sendMessage( { id: chat_id }: Bot.API.Response.Chat, text: string, options?: object ): Promise<Bot.API.Response.Message>{
-    return this.fetch<Bot.API.Response.Message>( "sendMessage", { chat_id, text, ...options } );
+  sendMessage( { id: chat_id }: Bot.API.Chat, text: string, options?: object ): Promise<Bot.API.Message>{
+    return this.fetch<Bot.API.Message>( "sendMessage", { chat_id, text, ...options } );
+  }
+
+  on<T = any, R = {}>( eventName: string, callback: Bot.callback<T, R>, ...preprocessors: Bot.preprocessor<T, R>[] ){
+    if( !( eventName in this.handlers ) ){
+      this.handlers[ eventName ] = [];
+    }
+
+    this.handlers[ eventName ].push( { callback, preprocessors } );
+  }
+
+  onMessage<R = {}>( callback: Bot.callback<Bot.API.Message, R>, ...preprocessors: Bot.preprocessor<Bot.API.Message, R>[] ){
+    this.on( "message", callback, replace( "message" ), ...preprocessors );
+  }
+
+  onSticker<R = {}>( callback: Bot.callback<Bot.API.Message, R>, ...preprocessors: Bot.preprocessor<Bot.API.Message, R>[] ){
+    this.onMessage( callback, ( { target } ) => "sticker" in target, ...preprocessors );
   }
 }
 

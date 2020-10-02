@@ -1,6 +1,5 @@
 import TBotException from "./TBotException";
 
-// #fix Function type
 function index( fetch: Function, token: string ){
   // #fix вынести
   const URL = `https://api.telegram.org/bot${token}`;
@@ -14,10 +13,10 @@ function index( fetch: Function, token: string ){
       body: JSON.stringify( body )
     } );
 
-    const result: Bot.API.Response.Base = await response.json();
+    const result: Bot.API.Base = await response.json();
 
     if( !result.ok ){
-      throw new TBotException( result as Bot.API.Response.Error );
+      throw new TBotException( result as Bot.API.Error );
     }
 
     return result.result;
